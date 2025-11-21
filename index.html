@@ -2,9 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 关键：viewport-fit=cover 适配全面屏 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Neon Snake - Adaptive View</title>
+    <title>Neon Snake - Mobile Fix</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
@@ -16,72 +15,36 @@
         }
 
         canvas { display: block; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
 
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 100;
-        }
-
-        /* 顶部 UI 栏 */
-        .top-ui {
-            display: flex; justify-content: space-between; padding: 15px;
-            width: 100%; box-sizing: border-box;
-        }
-
+        .top-ui { display: flex; justify-content: space-between; padding: 15px; box-sizing: border-box; width: 100%; }
         .score-box {
             background: rgba(0,0,0,0.6); padding: 8px 15px;
-            border: 1px solid #0ff; border-radius: 15px;
-            font-size: 1.2rem; color: #0ff; backdrop-filter: blur(4px);
-            text-shadow: 0 0 5px #0ff;
+            border: 1px solid #0ff; border-radius: 15px; color: #0ff; backdrop-filter: blur(4px);
         }
-
-        /* 小地图 - 放在左上角或右上角 */
         #minimap-container {
-            width: 100px; height: 100px; /* 稍微调小一点适配手机 */
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #333; border-radius: 50%;
+            width: 120px; height: 120px;
+            background: rgba(0, 0, 0, 0.8); border: 2px solid #333; border-radius: 50%;
             overflow: hidden; pointer-events: auto;
-            margin-left: auto; /* 靠右 */
-        }
-        /* 针对大屏稍微调大地图 */
-        @media (min-width: 768px) {
-            #minimap-container { width: 150px; height: 150px; }
         }
 
-        /* 消息通知 */
         #notification-area {
             position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 400px; display: flex; flex-direction: column; align-items: center;
-            pointer-events: none;
+            width: 90%; max-width: 400px; display: flex; flex-direction: column; align-items: center; pointer-events: none;
         }
         .notify-msg {
-            background: rgba(0, 0, 0, 0.7); color: white; padding: 6px 15px;
-            margin-bottom: 5px; border-radius: 20px; font-size: 0.8rem;
-            border: 1px solid rgba(255,255,255,0.2); animation: fadeSlide 4s forwards;
+            background: rgba(0, 0, 0, 0.7); color: white; padding: 6px 15px; margin-bottom: 5px;
+            border-radius: 20px; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.2); animation: fade 4s forwards;
         }
         .notify-join { border-color: #0f0; color: #afa; }
         .notify-kill { border-color: #ff0; color: #ffa; }
         .notify-leave { border-color: #f00; color: #faa; }
-        @keyframes fadeSlide { 
-            0% { opacity: 0; transform: translateY(-10px); }
-            10% { opacity: 1; transform: translateY(0); }
-            80% { opacity: 1; }
-            100% { opacity: 0; transform: translateY(-10px); display: none; }
-        }
+        @keyframes fade { 0% {opacity:0;transform:translateY(-10px);} 10% {opacity:1;transform:translateY(0);} 80% {opacity:1;} 100% {opacity:0;display:none;} }
 
-        /* 调试信息 */
-        #debug-info {
-            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-            font-size: 0.7rem; color: #555; text-align: center;
-        }
-
-        /* 手机控制器 */
         .mobile-controls { display: none; pointer-events: auto; }
         #joystick-zone {
-            position: absolute; bottom: 40px; left: 40px;
-            width: 120px; height: 120px; /* 稍微缩小 */
-            background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
+            position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px;
+            background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 50%;
         }
         #joystick-stick {
             position: absolute; top: 50%; left: 50%; width: 40px; height: 40px;
@@ -89,21 +52,18 @@
             transform: translate(-50%, -50%); box-shadow: 0 0 10px #0ff;
         }
         #boost-btn {
-            position: absolute; bottom: 50px; right: 40px;
-            width: 80px; height: 80px;
+            position: absolute; bottom: 50px; right: 40px; width: 80px; height: 80px;
             background: rgba(255, 0, 85, 0.2); border: 3px solid #f05; border-radius: 50%;
             color: #f05; font-size: 1.5rem; display: flex; justify-content: center; align-items: center;
         }
         #boost-btn:active { background: #f05; color: white; }
 
-        /* 菜单 */
         .menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.92); z-index: 999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            pointer-events: auto;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto;
         }
-        .input-ip { background: #222; border: 1px solid #555; color: white; padding: 12px; font-size: 1rem; text-align: center; width: 200px; margin: 20px; border-radius: 8px; }
+        .input-ip { background: #222; border: 1px solid #555; color: white; padding: 12px; font-size: 1rem; text-align: center; width: 220px; margin: 20px; border-radius: 8px; }
         .btn-start { background: #0ff; color: #000; border: none; padding: 12px 40px; font-size: 1rem; font-weight: bold; cursor: pointer; border-radius: 30px; box-shadow: 0 0 20px #0ff; }
         .hidden { display: none !important; }
     </style>
@@ -115,15 +75,9 @@
     <div id="ui-layer">
         <div class="top-ui">
             <div class="score-box">SCORE: <span id="score">0</span></div>
-            <div id="minimap-container">
-                <!-- canvas大小由CSS控制，但属性width/height决定分辨率 -->
-                <canvas id="minimap" width="150" height="150" style="width:100%; height:100%"></canvas>
-            </div>
+            <div id="minimap-container"><canvas id="minimap" width="150" height="150" style="width:100%; height:100%"></canvas></div>
         </div>
-
         <div id="notification-area"></div>
-        <div id="debug-info">Waiting for input...</div>
-
         <div id="mobile-controls" class="mobile-controls">
             <div id="joystick-zone"><div id="joystick-stick"></div></div>
             <div id="boost-btn">⚡</div>
@@ -132,8 +86,15 @@
 
     <div id="menu" class="menu">
         <h1 style="color:#0ff; margin-bottom:5px; font-size:2rem;">NEON SNAKE</h1>
-        <p style="color:#888; font-size:0.8rem;">Adaptive Viewport Update</p>
-        <input type="text" id="server-ip" class="input-ip" value="localhost:3000" placeholder="Server IP:Port">
+        <p style="color:#888; font-size:0.8rem; margin-bottom:20px;">Connection Fix Update</p>
+        
+        <div style="color:#666; font-size:0.8rem; text-align:left; width:280px;">
+            1. Ensure PC & Mobile on same WiFi<br>
+            2. Turn OFF PC Firewall<br>
+            3. Enter PC IP (e.g., 192.168.1.5:3000)
+        </div>
+        
+        <input type="text" id="server-ip" class="input-ip" placeholder="192.168.x.x:3000">
         <button class="btn-start" onclick="startGame()">JOIN GAME</button>
     </div>
 
@@ -141,16 +102,13 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const miniCtx = document.getElementById('minimap').getContext('2d');
-        const debugInfo = document.getElementById('debug-info');
         const notificationArea = document.getElementById('notification-area');
 
-        // === 关键修改：视野自适应配置 ===
-        // 这决定了“最短边”能看到多少个格子
-        // 无论手机还是电脑，屏幕最窄的一边始终能看到约 25 个格子
-        const VISIBLE_GRIDS_ON_SHORTEST_SIDE = 28; 
-        
-        let GRID_SIZE = 30; // 这不再是常量，而是变量，会根据屏幕计算
-        const MAP_SIZE = 150; // 需与服务器一致
+        // === 核心逻辑：视野自适应 ===
+        // 目标：在屏幕最短边至少显示28个格子
+        const VISIBLE_GRIDS = 28; 
+        let GRID_SIZE = 30; 
+        const MAP_SIZE = 150;
 
         let socket;
         let isPlaying = false;
@@ -158,24 +116,20 @@
         let gameState = { players: {}, foods: [] };
         let viewX = 0, viewY = 0;
 
-        // === 自适应核心逻辑 ===
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-
-            // 计算核心：取屏幕宽高中较小的一边，除以目标格子数
-            const shortestSide = Math.min(canvas.width, canvas.height);
-            GRID_SIZE = shortestSide / VISIBLE_GRIDS_ON_SHORTEST_SIDE;
-
-            // 限制一下最小和最大像素，防止在超大或超小屏幕上太离谱
-            // 例如：最小 10px (防止看不清)，最大 50px (防止颗粒感太重)
-            GRID_SIZE = Math.max(12, Math.min(50, GRID_SIZE));
-
-            // 调试：打印当前格子大小
-            console.log(`Grid Size: ${GRID_SIZE.toFixed(2)}px, Visible: ~${(canvas.width/GRID_SIZE).toFixed(1)}x${(canvas.height/GRID_SIZE).toFixed(1)}`);
+            
+            // 计算理想格子大小
+            let idealSize = Math.min(canvas.width, canvas.height) / VISIBLE_GRIDS;
+            
+            // 【视野保护】
+            // 如果在小手机上算出来只有10px，实在太小看不清，强制设为15px
+            // 这会导致视野稍微变小，但至少能玩
+            GRID_SIZE = Math.max(15, Math.min(50, idealSize));
         }
         window.addEventListener('resize', resize);
-        resize(); // 初始化执行一次
+        resize();
 
         function checkMobile() {
             if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
@@ -193,12 +147,17 @@
 
         function startGame() {
             const ip = document.getElementById('server-ip').value;
+            if(!ip) { alert("请输入IP地址!"); return; }
+            
             let url = ip.startsWith('http') ? ip : 'http://' + ip;
-            if(url.indexOf(':') === -1 && url.indexOf('localhost') === -1) {
-                alert("请填写端口号 :3000"); return;
-            }
+            if(url.indexOf(':') === -1) { alert("别忘了端口号 :3000"); return; }
 
-            socket = io(url);
+            // === 关键修复：强制 WebSocket 传输 ===
+            // 很多手机浏览器不支持 Polling 轮询，强制 WebSocket 可以解决连接错误
+            socket = io(url, {
+                transports: ['websocket'], 
+                reconnectionAttempts: 3
+            });
 
             socket.on('connect', () => {
                 myId = socket.id;
@@ -213,7 +172,11 @@
             });
 
             socket.on('notification', (data) => showNotification(data.msg, data.type));
-            socket.on('connect_error', (err) => alert("Connect Fail: " + err));
+            
+            socket.on('connect_error', (err) => {
+                console.error(err);
+                alert(`连接失败: ${err.message}\n请检查防火墙是否关闭，IP是否正确。`);
+            });
         }
 
         // 输入逻辑
@@ -223,11 +186,11 @@
             if (socket && isPlaying) {
                 socket.emit('input', { dx, dy });
                 lastDx = dx; lastDy = dy;
-                debugInfo.innerText = `Input: ${dx}, ${dy} | Grid: ${GRID_SIZE.toFixed(1)}px`;
             }
         }
         function sendBoost(active) { if (socket && isPlaying) socket.emit('input', { boost: active }); }
 
+        // 键盘
         document.addEventListener('keydown', e => {
             if(e.key==='w'||e.key==='ArrowUp') sendDir(0, -1);
             if(e.key==='s'||e.key==='ArrowDown') sendDir(0, 1);
@@ -260,7 +223,7 @@
 
         function updateJoystick(cx, cy) {
             let dx=cx-center.x, dy=cy-center.y;
-            let dist=Math.sqrt(dx*dx+dy*dy), maxDist=35; // 摇杆活动范围
+            let dist=Math.sqrt(dx*dx+dy*dy), maxDist=35;
             if(dist>maxDist) { dx=(dx/dist)*maxDist; dy=(dy/dist)*maxDist; }
             stick.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
             if(dist>10) {
@@ -273,14 +236,13 @@
         btnBoost.addEventListener('touchstart', (e) => { e.preventDefault(); sendBoost(true); });
         btnBoost.addEventListener('touchend', (e) => { e.preventDefault(); sendBoost(false); });
 
-        // === 渲染循环 ===
+        // 渲染
         function gameLoop() {
             if(!isPlaying) return;
 
             let me = gameState.players[myId];
             if(me) {
                 let tx = me.x * GRID_SIZE, ty = me.y * GRID_SIZE;
-                // 摄像机跟随
                 viewX += (tx - viewX - canvas.width/2 + GRID_SIZE/2) * 0.1;
                 viewY += (ty - viewY - canvas.height/2 + GRID_SIZE/2) * 0.1;
             }
@@ -288,45 +250,26 @@
             ctx.fillStyle = '#0b0b15'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.save(); ctx.translate(-viewX, -viewY);
 
-            // 画边界
-            ctx.strokeStyle = '#222'; ctx.lineWidth = GRID_SIZE/2;
+            // 绘制
+            ctx.strokeStyle = '#222'; ctx.lineWidth = GRID_SIZE;
             ctx.strokeRect(0, 0, MAP_SIZE*GRID_SIZE, MAP_SIZE*GRID_SIZE);
-
-            // 画网格 (优化性能，只画视野内的)
             drawGrid();
 
-            // 画食物
             gameState.foods.forEach(f => {
                 ctx.fillStyle = f.color; ctx.beginPath();
-                // 半径随格子大小动态变化
-                ctx.arc(f.x*GRID_SIZE + GRID_SIZE/2, f.y*GRID_SIZE + GRID_SIZE/2, GRID_SIZE/3, 0, Math.PI*2);
-                ctx.fill();
+                ctx.arc(f.x*GRID_SIZE + GRID_SIZE/2, f.y*GRID_SIZE + GRID_SIZE/2, GRID_SIZE/3, 0, Math.PI*2); ctx.fill();
             });
 
-            // 画玩家
             for(let id in gameState.players) {
                 let p = gameState.players[id];
                 let isMe = (id === myId);
-                
-                ctx.fillStyle = p.color;
-                if(isMe) { ctx.shadowBlur = 15; ctx.shadowColor = p.color; }
-                
-                // 身体
-                p.tail.forEach(t => {
-                    // 身体大小微调，稍微留点缝隙更好看
-                    ctx.fillRect(t.x*GRID_SIZE, t.y*GRID_SIZE, GRID_SIZE+0.5, GRID_SIZE+0.5);
-                });
-                ctx.shadowBlur = 0;
-
-                // 头
+                ctx.fillStyle = p.color; if(isMe){ctx.shadowBlur=15;ctx.shadowColor=p.color;}
+                p.tail.forEach(t => ctx.fillRect(t.x*GRID_SIZE, t.y*GRID_SIZE, GRID_SIZE+0.5, GRID_SIZE+0.5));
+                ctx.shadowBlur=0;
                 ctx.fillStyle = isMe ? '#fff' : p.color;
                 ctx.fillRect(p.x*GRID_SIZE, p.y*GRID_SIZE, GRID_SIZE, GRID_SIZE);
-                
-                // 名字 (根据格子大小调整字体)
                 if(!isMe) {
-                    ctx.fillStyle = '#fff'; 
-                    ctx.font = `${Math.max(10, GRID_SIZE/2)}px Arial`; // 动态字体大小
-                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#fff'; ctx.font = `${GRID_SIZE/2}px Arial`; ctx.textAlign = 'center';
                     ctx.fillText(p.name, p.x*GRID_SIZE+GRID_SIZE/2, p.y*GRID_SIZE - 5);
                 }
             }
@@ -338,7 +281,6 @@
         function drawGrid() {
             let startCol = Math.floor(viewX / GRID_SIZE), endCol = startCol + (canvas.width / GRID_SIZE) + 1;
             let startRow = Math.floor(viewY / GRID_SIZE), endRow = startRow + (canvas.height / GRID_SIZE) + 1;
-            
             ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 1; ctx.beginPath();
             for(let x=startCol; x<=endCol; x++) { ctx.moveTo(x*GRID_SIZE, viewY); ctx.lineTo(x*GRID_SIZE, viewY+canvas.height); }
             for(let y=startRow; y<=endRow; y++) { ctx.moveTo(viewX, y*GRID_SIZE); ctx.lineTo(viewX+canvas.width, y*GRID_SIZE); }
@@ -346,25 +288,16 @@
         }
 
         function drawMinimap() {
-            // 清空
             miniCtx.fillStyle = 'rgba(0,0,0,0.9)'; miniCtx.fillRect(0, 0, 150, 150);
-            
-            // 小地图比例
-            let scale = 150 / MAP_SIZE; // 150是canvas像素大小，MAP_SIZE是逻辑大小
-
-            // 画食物
+            let scale = 150 / MAP_SIZE;
             miniCtx.fillStyle = '#444';
             gameState.foods.forEach(f => miniCtx.fillRect(f.x*scale, f.y*scale, 1.5, 1.5));
-
             for(let id in gameState.players) {
                 let p = gameState.players[id];
-                let isMe = (id === myId);
-                
-                if(isMe) miniCtx.fillStyle = '#0f0';
+                if(id === myId) miniCtx.fillStyle = '#0f0';
                 else if(p.isBot) miniCtx.fillStyle = '#f00';
-                else miniCtx.fillStyle = '#00f'; // 队友蓝色
-
-                let r = isMe ? 3 : (p.isBot ? 1.5 : 2.5);
+                else miniCtx.fillStyle = '#00f';
+                let r = (id===myId) ? 3 : (p.isBot?1.5:2.5);
                 miniCtx.beginPath(); miniCtx.arc(p.x*scale, p.y*scale, r, 0, Math.PI*2); miniCtx.fill();
             }
         }
