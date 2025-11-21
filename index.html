@@ -2,8 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- 关键：viewport-fit=cover 适配全面屏 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Neon Snake - Online Notification</title>
+    <title>Neon Snake - Adaptive View</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
@@ -21,88 +22,89 @@
             pointer-events: none; z-index: 100;
         }
 
+        /* 顶部 UI 栏 */
+        .top-ui {
+            display: flex; justify-content: space-between; padding: 15px;
+            width: 100%; box-sizing: border-box;
+        }
+
         .score-box {
-            position: absolute; top: 15px; left: 15px;
-            background: rgba(0,0,0,0.6); padding: 10px 15px;
+            background: rgba(0,0,0,0.6); padding: 8px 15px;
             border: 1px solid #0ff; border-radius: 15px;
             font-size: 1.2rem; color: #0ff; backdrop-filter: blur(4px);
+            text-shadow: 0 0 5px #0ff;
         }
 
+        /* 小地图 - 放在左上角或右上角 */
         #minimap-container {
-            position: absolute; top: 15px; right: 15px;
-            width: 130px; height: 130px;
+            width: 100px; height: 100px; /* 稍微调小一点适配手机 */
             background: rgba(0, 0, 0, 0.8);
             border: 2px solid #333; border-radius: 50%;
-            overflow: hidden;
-            pointer-events: auto;
+            overflow: hidden; pointer-events: auto;
+            margin-left: auto; /* 靠右 */
+        }
+        /* 针对大屏稍微调大地图 */
+        @media (min-width: 768px) {
+            #minimap-container { width: 150px; height: 150px; }
         }
 
-        /* --- 消息通知区域 (新功能) --- */
+        /* 消息通知 */
         #notification-area {
-            position: absolute; top: 80px; left: 50%;
-            transform: translateX(-50%);
-            width: 80%; max-width: 400px;
-            display: flex; flex-direction: column; align-items: center;
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; display: flex; flex-direction: column; align-items: center;
             pointer-events: none;
         }
-
-        /* 单条消息样式 */
         .notify-msg {
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 8px 20px;
-            margin-bottom: 8px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            animation: fadeSlide 4s forwards; /* 4秒后消失 */
-            backdrop-filter: blur(2px);
-            text-align: center;
+            background: rgba(0, 0, 0, 0.7); color: white; padding: 6px 15px;
+            margin-bottom: 5px; border-radius: 20px; font-size: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.2); animation: fadeSlide 4s forwards;
         }
-
-        /* 不同类型的颜色 */
-        .notify-join { border-color: #0f0; color: #afa; text-shadow: 0 0 5px #0f0; }
-        .notify-leave { border-color: #f00; color: #faa; }
+        .notify-join { border-color: #0f0; color: #afa; }
         .notify-kill { border-color: #ff0; color: #ffa; }
-        .notify-info { border-color: #0ff; color: #aff; }
-
-        @keyframes fadeSlide {
-            0% { opacity: 0; transform: translateY(-20px); }
+        .notify-leave { border-color: #f00; color: #faa; }
+        @keyframes fadeSlide { 
+            0% { opacity: 0; transform: translateY(-10px); }
             10% { opacity: 1; transform: translateY(0); }
             80% { opacity: 1; }
             100% { opacity: 0; transform: translateY(-10px); display: none; }
         }
 
-        /* 调试与手机控制 */
-        #debug-info { position: absolute; top: 150px; left: 15px; font-size: 0.8rem; color: #666; }
+        /* 调试信息 */
+        #debug-info {
+            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+            font-size: 0.7rem; color: #555; text-align: center;
+        }
+
+        /* 手机控制器 */
         .mobile-controls { display: none; pointer-events: auto; }
         #joystick-zone {
             position: absolute; bottom: 40px; left: 40px;
-            width: 140px; height: 140px;
+            width: 120px; height: 120px; /* 稍微缩小 */
             background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 50%; touch-action: none;
+            border-radius: 50%;
         }
         #joystick-stick {
-            position: absolute; top: 50%; left: 50%; width: 50px; height: 50px;
+            position: absolute; top: 50%; left: 50%; width: 40px; height: 40px;
             background: rgba(0, 255, 255, 0.4); border: 2px solid #0ff; border-radius: 50%;
-            transform: translate(-50%, -50%); box-shadow: 0 0 15px #0ff;
+            transform: translate(-50%, -50%); box-shadow: 0 0 10px #0ff;
         }
         #boost-btn {
-            position: absolute; bottom: 60px; right: 40px;
-            width: 90px; height: 90px;
+            position: absolute; bottom: 50px; right: 40px;
+            width: 80px; height: 80px;
             background: rgba(255, 0, 85, 0.2); border: 3px solid #f05; border-radius: 50%;
-            color: #f05; font-size: 2rem; display: flex; justify-content: center; align-items: center;
+            color: #f05; font-size: 1.5rem; display: flex; justify-content: center; align-items: center;
         }
         #boost-btn:active { background: #f05; color: white; }
 
+        /* 菜单 */
         .menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 999;
+            background: rgba(0,0,0,0.92); z-index: 999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             pointer-events: auto;
         }
-        .input-ip { background: #222; border: 1px solid #555; color: white; padding: 15px; font-size: 1.2rem; text-align: center; width: 250px; margin: 20px; border-radius: 8px; }
-        .btn-start { background: #0ff; color: #000; border: none; padding: 15px 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 30px; box-shadow: 0 0 20px #0ff; }
+        .input-ip { background: #222; border: 1px solid #555; color: white; padding: 12px; font-size: 1rem; text-align: center; width: 200px; margin: 20px; border-radius: 8px; }
+        .btn-start { background: #0ff; color: #000; border: none; padding: 12px 40px; font-size: 1rem; font-weight: bold; cursor: pointer; border-radius: 30px; box-shadow: 0 0 20px #0ff; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -111,16 +113,16 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <div class="score-box">SCORE: <span id="score">0</span></div>
-        
-        <!-- 消息通知挂载点 -->
-        <div id="notification-area"></div>
-
-        <div id="minimap-container">
-            <canvas id="minimap" width="130" height="130"></canvas>
+        <div class="top-ui">
+            <div class="score-box">SCORE: <span id="score">0</span></div>
+            <div id="minimap-container">
+                <!-- canvas大小由CSS控制，但属性width/height决定分辨率 -->
+                <canvas id="minimap" width="150" height="150" style="width:100%; height:100%"></canvas>
+            </div>
         </div>
-        
-        <div id="debug-info">Input: Wait...</div>
+
+        <div id="notification-area"></div>
+        <div id="debug-info">Waiting for input...</div>
 
         <div id="mobile-controls" class="mobile-controls">
             <div id="joystick-zone"><div id="joystick-stick"></div></div>
@@ -129,9 +131,9 @@
     </div>
 
     <div id="menu" class="menu">
-        <h1 style="color:#0ff; margin-bottom:10px; font-size:2.5rem;">NEON SNAKE</h1>
-        <p style="color:#aaa;">Teammate Notifications Added</p>
-        <input type="text" id="server-ip" class="input-ip" value="localhost:3000" placeholder="192.168.x.x:3000">
+        <h1 style="color:#0ff; margin-bottom:5px; font-size:2rem;">NEON SNAKE</h1>
+        <p style="color:#888; font-size:0.8rem;">Adaptive Viewport Update</p>
+        <input type="text" id="server-ip" class="input-ip" value="localhost:3000" placeholder="Server IP:Port">
         <button class="btn-start" onclick="startGame()">JOIN GAME</button>
     </div>
 
@@ -142,8 +144,13 @@
         const debugInfo = document.getElementById('debug-info');
         const notificationArea = document.getElementById('notification-area');
 
-        const GRID_SIZE = 30;
-        const MAP_SIZE = 150;
+        // === 关键修改：视野自适应配置 ===
+        // 这决定了“最短边”能看到多少个格子
+        // 无论手机还是电脑，屏幕最窄的一边始终能看到约 25 个格子
+        const VISIBLE_GRIDS_ON_SHORTEST_SIDE = 28; 
+        
+        let GRID_SIZE = 30; // 这不再是常量，而是变量，会根据屏幕计算
+        const MAP_SIZE = 150; // 需与服务器一致
 
         let socket;
         let isPlaying = false;
@@ -151,9 +158,24 @@
         let gameState = { players: {}, foods: [] };
         let viewX = 0, viewY = 0;
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        // === 自适应核心逻辑 ===
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // 计算核心：取屏幕宽高中较小的一边，除以目标格子数
+            const shortestSide = Math.min(canvas.width, canvas.height);
+            GRID_SIZE = shortestSide / VISIBLE_GRIDS_ON_SHORTEST_SIDE;
+
+            // 限制一下最小和最大像素，防止在超大或超小屏幕上太离谱
+            // 例如：最小 10px (防止看不清)，最大 50px (防止颗粒感太重)
+            GRID_SIZE = Math.max(12, Math.min(50, GRID_SIZE));
+
+            // 调试：打印当前格子大小
+            console.log(`Grid Size: ${GRID_SIZE.toFixed(2)}px, Visible: ~${(canvas.width/GRID_SIZE).toFixed(1)}x${(canvas.height/GRID_SIZE).toFixed(1)}`);
+        }
         window.addEventListener('resize', resize);
-        resize();
+        resize(); // 初始化执行一次
 
         function checkMobile() {
             if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
@@ -162,24 +184,18 @@
         }
         checkMobile();
 
-        // === 核心：消息提示函数 ===
         function showNotification(text, type = 'info') {
             const div = document.createElement('div');
-            div.innerText = text;
-            div.className = `notify-msg notify-${type}`;
+            div.innerText = text; div.className = `notify-msg notify-${type}`;
             notificationArea.appendChild(div);
-
-            // 4秒后自动移除DOM
-            setTimeout(() => {
-                if(div.parentNode) div.parentNode.removeChild(div);
-            }, 4000);
+            setTimeout(() => { if(div.parentNode) div.parentNode.removeChild(div); }, 4000);
         }
 
         function startGame() {
             const ip = document.getElementById('server-ip').value;
             let url = ip.startsWith('http') ? ip : 'http://' + ip;
             if(url.indexOf(':') === -1 && url.indexOf('localhost') === -1) {
-                alert("请加上端口号 :3000"); return;
+                alert("请填写端口号 :3000"); return;
             }
 
             socket = io(url);
@@ -196,23 +212,18 @@
                 if(gameState.players[myId]) document.getElementById('score').innerText = Math.floor(gameState.players[myId].score);
             });
 
-            // === 监听服务器通知 ===
-            socket.on('notification', (data) => {
-                // data 结构: { msg: "xxx", type: "join/leave/kill" }
-                showNotification(data.msg, data.type);
-            });
-
-            socket.on('connect_error', (err) => alert("连接失败: " + err));
+            socket.on('notification', (data) => showNotification(data.msg, data.type));
+            socket.on('connect_error', (err) => alert("Connect Fail: " + err));
         }
 
-        // === 输入系统 (保持之前的修复) ===
+        // 输入逻辑
         let lastDx = 0, lastDy = 0;
         function sendDir(dx, dy) {
             if (dx === lastDx && dy === lastDy) return;
             if (socket && isPlaying) {
                 socket.emit('input', { dx, dy });
                 lastDx = dx; lastDy = dy;
-                debugInfo.innerText = `Input: X:${dx} Y:${dy}`;
+                debugInfo.innerText = `Input: ${dx}, ${dy} | Grid: ${GRID_SIZE.toFixed(1)}px`;
             }
         }
         function sendBoost(active) { if (socket && isPlaying) socket.emit('input', { boost: active }); }
@@ -226,36 +237,35 @@
         });
         document.addEventListener('keyup', e => { if(e.code==='Space') sendBoost(false); });
 
+        // 摇杆
         const zone = document.getElementById('joystick-zone');
         const stick = document.getElementById('joystick-stick');
-        let joyTouchId = null, zoneRect = null, center = {x:0,y:0};
+        let joyTouchId=null, center={x:0,y:0};
 
         zone.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            let t = e.changedTouches[0]; joyTouchId = t.identifier;
-            zoneRect = zone.getBoundingClientRect();
-            center.x = zoneRect.left + zoneRect.width/2; center.y = zoneRect.top + zoneRect.height/2;
+            e.preventDefault(); let t=e.changedTouches[0]; joyTouchId=t.identifier;
+            let rect=zone.getBoundingClientRect(); center.x=rect.left+rect.width/2; center.y=rect.top+rect.height/2;
             updateJoystick(t.clientX, t.clientY);
         }, {passive: false});
 
         zone.addEventListener('touchmove', (e) => {
             e.preventDefault();
             for(let i=0; i<e.changedTouches.length; i++) {
-                if(e.changedTouches[i].identifier === joyTouchId) updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                if(e.changedTouches[i].identifier===joyTouchId) updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
             }
         }, {passive: false});
 
-        function endJoystick() { joyTouchId = null; stick.style.transform = `translate(-50%, -50%)`; }
+        function endJoystick() { joyTouchId=null; stick.style.transform=`translate(-50%,-50%)`; }
         zone.addEventListener('touchend', endJoystick); zone.addEventListener('touchcancel', endJoystick);
 
         function updateJoystick(cx, cy) {
-            let dx = cx - center.x, dy = cy - center.y;
-            let dist = Math.sqrt(dx*dx + dy*dy), maxDist = 40;
-            if(dist > maxDist) { dx = (dx/dist)*maxDist; dy = (dy/dist)*maxDist; }
-            stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-            if (dist > 10) {
-                if (Math.abs(dx) > Math.abs(dy)) sendDir(dx > 0 ? 1 : -1, 0);
-                else sendDir(0, dy > 0 ? 1 : -1);
+            let dx=cx-center.x, dy=cy-center.y;
+            let dist=Math.sqrt(dx*dx+dy*dy), maxDist=35; // 摇杆活动范围
+            if(dist>maxDist) { dx=(dx/dist)*maxDist; dy=(dy/dist)*maxDist; }
+            stick.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            if(dist>10) {
+                if(Math.abs(dx)>Math.abs(dy)) sendDir(dx>0?1:-1, 0);
+                else sendDir(0, dy>0?1:-1);
             }
         }
 
@@ -263,13 +273,14 @@
         btnBoost.addEventListener('touchstart', (e) => { e.preventDefault(); sendBoost(true); });
         btnBoost.addEventListener('touchend', (e) => { e.preventDefault(); sendBoost(false); });
 
-        // === 渲染 ===
+        // === 渲染循环 ===
         function gameLoop() {
             if(!isPlaying) return;
-            
+
             let me = gameState.players[myId];
             if(me) {
                 let tx = me.x * GRID_SIZE, ty = me.y * GRID_SIZE;
+                // 摄像机跟随
                 viewX += (tx - viewX - canvas.width/2 + GRID_SIZE/2) * 0.1;
                 viewY += (ty - viewY - canvas.height/2 + GRID_SIZE/2) * 0.1;
             }
@@ -277,25 +288,45 @@
             ctx.fillStyle = '#0b0b15'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.save(); ctx.translate(-viewX, -viewY);
 
-            ctx.strokeStyle = '#222'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, MAP_SIZE*GRID_SIZE, MAP_SIZE*GRID_SIZE);
+            // 画边界
+            ctx.strokeStyle = '#222'; ctx.lineWidth = GRID_SIZE/2;
+            ctx.strokeRect(0, 0, MAP_SIZE*GRID_SIZE, MAP_SIZE*GRID_SIZE);
+
+            // 画网格 (优化性能，只画视野内的)
             drawGrid();
 
+            // 画食物
             gameState.foods.forEach(f => {
-                ctx.fillStyle = f.color; ctx.beginPath(); 
-                ctx.arc(f.x*GRID_SIZE + GRID_SIZE/2, f.y*GRID_SIZE + GRID_SIZE/2, GRID_SIZE/3, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = f.color; ctx.beginPath();
+                // 半径随格子大小动态变化
+                ctx.arc(f.x*GRID_SIZE + GRID_SIZE/2, f.y*GRID_SIZE + GRID_SIZE/2, GRID_SIZE/3, 0, Math.PI*2);
+                ctx.fill();
             });
 
+            // 画玩家
             for(let id in gameState.players) {
                 let p = gameState.players[id];
                 let isMe = (id === myId);
+                
                 ctx.fillStyle = p.color;
                 if(isMe) { ctx.shadowBlur = 15; ctx.shadowColor = p.color; }
-                p.tail.forEach(t => ctx.fillRect(t.x*GRID_SIZE, t.y*GRID_SIZE, GRID_SIZE+0.5, GRID_SIZE+0.5));
+                
+                // 身体
+                p.tail.forEach(t => {
+                    // 身体大小微调，稍微留点缝隙更好看
+                    ctx.fillRect(t.x*GRID_SIZE, t.y*GRID_SIZE, GRID_SIZE+0.5, GRID_SIZE+0.5);
+                });
                 ctx.shadowBlur = 0;
+
+                // 头
                 ctx.fillStyle = isMe ? '#fff' : p.color;
                 ctx.fillRect(p.x*GRID_SIZE, p.y*GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                
+                // 名字 (根据格子大小调整字体)
                 if(!isMe) {
-                    ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+                    ctx.fillStyle = '#fff'; 
+                    ctx.font = `${Math.max(10, GRID_SIZE/2)}px Arial`; // 动态字体大小
+                    ctx.textAlign = 'center';
                     ctx.fillText(p.name, p.x*GRID_SIZE+GRID_SIZE/2, p.y*GRID_SIZE - 5);
                 }
             }
@@ -307,6 +338,7 @@
         function drawGrid() {
             let startCol = Math.floor(viewX / GRID_SIZE), endCol = startCol + (canvas.width / GRID_SIZE) + 1;
             let startRow = Math.floor(viewY / GRID_SIZE), endRow = startRow + (canvas.height / GRID_SIZE) + 1;
+            
             ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 1; ctx.beginPath();
             for(let x=startCol; x<=endCol; x++) { ctx.moveTo(x*GRID_SIZE, viewY); ctx.lineTo(x*GRID_SIZE, viewY+canvas.height); }
             for(let y=startRow; y<=endRow; y++) { ctx.moveTo(viewX, y*GRID_SIZE); ctx.lineTo(viewX+canvas.width, y*GRID_SIZE); }
@@ -314,16 +346,24 @@
         }
 
         function drawMinimap() {
-            miniCtx.fillStyle = 'rgba(0,0,0,0.8)'; miniCtx.fillRect(0, 0, 130, 130);
-            let scale = 130 / MAP_SIZE;
-            miniCtx.fillStyle = '#555';
+            // 清空
+            miniCtx.fillStyle = 'rgba(0,0,0,0.9)'; miniCtx.fillRect(0, 0, 150, 150);
+            
+            // 小地图比例
+            let scale = 150 / MAP_SIZE; // 150是canvas像素大小，MAP_SIZE是逻辑大小
+
+            // 画食物
+            miniCtx.fillStyle = '#444';
             gameState.foods.forEach(f => miniCtx.fillRect(f.x*scale, f.y*scale, 1.5, 1.5));
+
             for(let id in gameState.players) {
                 let p = gameState.players[id];
                 let isMe = (id === myId);
-                if (isMe) miniCtx.fillStyle = '#0f0'; 
-                else if (p.isBot) miniCtx.fillStyle = '#f00'; 
-                else miniCtx.fillStyle = '#00f'; 
+                
+                if(isMe) miniCtx.fillStyle = '#0f0';
+                else if(p.isBot) miniCtx.fillStyle = '#f00';
+                else miniCtx.fillStyle = '#00f'; // 队友蓝色
+
                 let r = isMe ? 3 : (p.isBot ? 1.5 : 2.5);
                 miniCtx.beginPath(); miniCtx.arc(p.x*scale, p.y*scale, r, 0, Math.PI*2); miniCtx.fill();
             }
