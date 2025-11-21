@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Neon Snake - Mobile Fix</title>
+    <title>Neon Snake - Ultimate Hybrid</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
@@ -17,10 +17,12 @@
         canvas { display: block; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
 
-        .top-ui { display: flex; justify-content: space-between; padding: 15px; box-sizing: border-box; width: 100%; }
+        /* UI 布局 */
+        .top-ui { display: flex; justify-content: space-between; padding: 15px; width: 100%; box-sizing: border-box; }
         .score-box {
             background: rgba(0,0,0,0.6); padding: 8px 15px;
             border: 1px solid #0ff; border-radius: 15px; color: #0ff; backdrop-filter: blur(4px);
+            font-size: 1.2rem; text-shadow: 0 0 5px #0ff; height: fit-content;
         }
         #minimap-container {
             width: 120px; height: 120px;
@@ -28,6 +30,7 @@
             overflow: hidden; pointer-events: auto;
         }
 
+        /* 消息通知 */
         #notification-area {
             position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
             width: 90%; max-width: 400px; display: flex; flex-direction: column; align-items: center; pointer-events: none;
@@ -41,6 +44,7 @@
         .notify-leave { border-color: #f00; color: #faa; }
         @keyframes fade { 0% {opacity:0;transform:translateY(-10px);} 10% {opacity:1;transform:translateY(0);} 80% {opacity:1;} 100% {opacity:0;display:none;} }
 
+        /* 手机控制 */
         .mobile-controls { display: none; pointer-events: auto; }
         #joystick-zone {
             position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px;
@@ -58,23 +62,40 @@
         }
         #boost-btn:active { background: #f05; color: white; }
 
+        /* 菜单 */
         .menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.92); z-index: 999;
             display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto;
         }
-        .input-ip { background: #222; border: 1px solid #555; color: white; padding: 12px; font-size: 1rem; text-align: center; width: 220px; margin: 20px; border-radius: 8px; }
-        .btn-start { background: #0ff; color: #000; border: none; padding: 12px 40px; font-size: 1rem; font-weight: bold; cursor: pointer; border-radius: 30px; box-shadow: 0 0 20px #0ff; }
+        .btn {
+            background: rgba(0, 255, 255, 0.1); border: 2px solid #0ff; color: #0ff;
+            padding: 15px 40px; font-size: 1.2rem; margin: 10px; cursor: pointer; border-radius: 8px;
+            width: 280px; text-align: center; transition: 0.2s; font-weight: bold;
+        }
+        .btn:hover { background: #0ff; color: #000; }
+        .btn-secondary { border-color: #f0f; color: #f0f; background: rgba(255, 0, 255, 0.1); }
+        .btn-secondary:hover { background: #f0f; color: #000; }
+        
+        .input-ip { background: #222; border: 1px solid #555; color: white; padding: 12px; font-size: 1rem; text-align: center; width: 250px; border-radius: 8px; margin-bottom: 10px; }
         .hidden { display: none !important; }
+
+        /* 游戏结束面板 */
+        #game-over {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); padding: 40px; border: 2px solid #f05; border-radius: 20px;
+            text-align: center; z-index: 200; display: none;
+        }
     </style>
 </head>
 <body>
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- UI 层 -->
     <div id="ui-layer">
         <div class="top-ui">
-            <div class="score-box">SCORE: <span id="score">0</span></div>
+            <div class="score-box">SCORE: <span id="scoreVal">0</span></div>
             <div id="minimap-container"><canvas id="minimap" width="150" height="150" style="width:100%; height:100%"></canvas></div>
         </div>
         <div id="notification-area"></div>
@@ -84,48 +105,68 @@
         </div>
     </div>
 
-    <div id="menu" class="menu">
-        <h1 style="color:#0ff; margin-bottom:5px; font-size:2rem;">NEON SNAKE</h1>
-        <p style="color:#888; font-size:0.8rem; margin-bottom:20px;">Connection Fix Update</p>
+    <!-- 主菜单 -->
+    <div id="main-menu" class="menu">
+        <h1 style="font-size: 3rem; margin-bottom: 10px; background: linear-gradient(to right, #0ff, #f0f); -webkit-background-clip: text; color: transparent;">NEON SNAKE</h1>
+        <p style="color:#888; margin-bottom: 30px;">Ultimate Hybrid Edition</p>
         
-        <div style="color:#666; font-size:0.8rem; text-align:left; width:280px;">
-            1. Ensure PC & Mobile on same WiFi<br>
-            2. Turn OFF PC Firewall<br>
-            3. Enter PC IP (e.g., 192.168.1.5:3000)
+        <button class="btn" onclick="startLocalGame()">单机模式 (Solo)</button>
+        
+        <div style="height: 20px;"></div> <!-- 间隔 -->
+        
+        <div style="border-top: 1px solid #333; padding-top: 20px; display: flex; flex-direction: column; align-items: center;">
+            <input type="text" id="server-ip" class="input-ip" placeholder="PC IP (e.g., 192.168.1.5:3000)">
+            <button class="btn btn-secondary" onclick="startOnlineGame()">联机模式 (Online)</button>
         </div>
-        
-        <input type="text" id="server-ip" class="input-ip" placeholder="192.168.x.x:3000">
-        <button class="btn-start" onclick="startGame()">JOIN GAME</button>
+    </div>
+
+    <!-- 游戏结束面板 -->
+    <div id="game-over">
+        <h1 style="color: #f05; font-size: 2.5rem;">GAME OVER</h1>
+        <p style="font-size: 1.2rem;">Score: <span id="final-score">0</span></p>
+        <button class="btn" onclick="location.reload()">MAIN MENU</button>
     </div>
 
     <script>
+        // ==========================================
+        //      全局变量与配置
+        // ==========================================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const miniCtx = document.getElementById('minimap').getContext('2d');
         const notificationArea = document.getElementById('notification-area');
 
-        // === 核心逻辑：视野自适应 ===
-        // 目标：在屏幕最短边至少显示28个格子
-        const VISIBLE_GRIDS = 28; 
-        let GRID_SIZE = 30; 
-        const MAP_SIZE = 150;
+        const VISIBLE_GRIDS = 28; // 视野保护：短边至少显示28格
+        const MAP_SIZE = 150;     // 地图大小 (单机联机保持一致)
+        let GRID_SIZE = 30;       // 动态计算
 
-        let socket;
+        let gameMode = ''; // 'local' 或 'online'
         let isPlaying = false;
-        let myId = null;
-        let gameState = { players: {}, foods: [] };
         let viewX = 0, viewY = 0;
+        
+        // 联机数据
+        let socket;
+        let myId = null;
+        let onlineData = { players: {}, foods: [] };
 
+        // 单机数据
+        let localPlayer;
+        let localBots = [];
+        let localFoods = [];
+        const LOCAL_BOT_COUNT = 30;
+        const LOCAL_FOOD_COUNT = 400;
+
+        // 颜色池
+        const COLORS = ['#00ffcc', '#ff0055', '#ffff00', '#00ccff', '#ff6600', '#cc00ff', '#00ff00'];
+
+        // ==========================================
+        //      初始化 & 适配
+        // ==========================================
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            
-            // 计算理想格子大小
+            // 动态计算格子大小，保证手机能看清
             let idealSize = Math.min(canvas.width, canvas.height) / VISIBLE_GRIDS;
-            
-            // 【视野保护】
-            // 如果在小手机上算出来只有10px，实在太小看不清，强制设为15px
-            // 这会导致视野稍微变小，但至少能玩
             GRID_SIZE = Math.max(15, Math.min(50, idealSize));
         }
         window.addEventListener('resize', resize);
@@ -138,59 +179,202 @@
         }
         checkMobile();
 
-        function showNotification(text, type = 'info') {
-            const div = document.createElement('div');
-            div.innerText = text; div.className = `notify-msg notify-${type}`;
-            notificationArea.appendChild(div);
-            setTimeout(() => { if(div.parentNode) div.parentNode.removeChild(div); }, 4000);
+        // ==========================================
+        //      游戏启动逻辑 (单机 vs 联机)
+        // ==========================================
+
+        function startLocalGame() {
+            gameMode = 'local';
+            document.getElementById('main-menu').classList.add('hidden');
+            
+            // 初始化单机实体
+            localPlayer = new LocalSnake(false, 'me');
+            localBots = [];
+            for(let i=0; i<LOCAL_BOT_COUNT; i++) localBots.push(new LocalSnake(true, i));
+            localFoods = [];
+            for(let i=0; i<LOCAL_FOOD_COUNT; i++) spawnLocalFood();
+
+            showNotification("欢迎来到单机模式！", "info");
+            isPlaying = true;
+            gameLoop();
         }
 
-        function startGame() {
+        function startOnlineGame() {
             const ip = document.getElementById('server-ip').value;
-            if(!ip) { alert("请输入IP地址!"); return; }
-            
+            if(!ip) { alert("请输入电脑IP地址！"); return; }
             let url = ip.startsWith('http') ? ip : 'http://' + ip;
-            if(url.indexOf(':') === -1) { alert("别忘了端口号 :3000"); return; }
+            if(url.indexOf(':') === -1) { alert("请加上端口号 :3000"); return; }
 
-            // === 关键修复：强制 WebSocket 传输 ===
-            // 很多手机浏览器不支持 Polling 轮询，强制 WebSocket 可以解决连接错误
-            socket = io(url, {
-                transports: ['websocket'], 
-                reconnectionAttempts: 3
-            });
+            gameMode = 'online';
+            
+            socket = io(url, { transports: ['websocket'], reconnectionAttempts: 3 });
 
             socket.on('connect', () => {
                 myId = socket.id;
-                document.getElementById('menu').classList.add('hidden');
+                document.getElementById('main-menu').classList.add('hidden');
                 isPlaying = true;
                 gameLoop();
             });
 
             socket.on('gameState', (data) => {
-                gameState = data;
-                if(gameState.players[myId]) document.getElementById('score').innerText = Math.floor(gameState.players[myId].score);
+                onlineData = data;
+                if(onlineData.players[myId]) {
+                    document.getElementById('scoreVal').innerText = Math.floor(onlineData.players[myId].score);
+                }
             });
-
-            socket.on('notification', (data) => showNotification(data.msg, data.type));
             
-            socket.on('connect_error', (err) => {
-                console.error(err);
-                alert(`连接失败: ${err.message}\n请检查防火墙是否关闭，IP是否正确。`);
+            socket.on('notification', (data) => showNotification(data.msg, data.type));
+            socket.on('connect_error', (err) => alert("连接失败: " + err.message));
+        }
+
+        // ==========================================
+        //      单机模式逻辑 (模拟服务器)
+        // ==========================================
+        class LocalSnake {
+            constructor(isAi, id) {
+                this.isAi = isAi; this.id = id;
+                this.respawn();
+            }
+            respawn() {
+                this.x = Math.floor(Math.random()*MAP_SIZE);
+                this.y = Math.floor(Math.random()*MAP_SIZE);
+                this.dx = 1; this.dy = 0;
+                this.tail = []; this.score = 0; this.len = 5;
+                this.color = this.isAi ? COLORS[Math.floor(Math.random()*COLORS.length)] : '#ffffff';
+                this.name = this.isAi ? `BOT-${Math.floor(Math.random()*100)}` : "YOU";
+                this.boosting = false; this.alive = true;
+                this.target = null; // AI目标
+            }
+            update() {
+                if(!this.alive) return;
+                
+                // AI 思考
+                if(this.isAi) this.aiThink();
+
+                // 静止时不更新
+                if(this.dx === 0 && this.dy === 0) return;
+
+                // 冲刺逻辑
+                if(this.boosting && this.len > 5) {
+                    this.score -= 0.2;
+                    if(this.score < 0) this.score = 0;
+                    if(Math.random()<0.3) spawnLocalFood(this.x, this.y, 1);
+                }
+
+                this.x += this.dx; this.y += this.dy;
+                // 穿墙
+                if(this.x < 0) this.x = MAP_SIZE-1; if(this.x >= MAP_SIZE) this.x = 0;
+                if(this.y < 0) this.y = MAP_SIZE-1; if(this.y >= MAP_SIZE) this.y = 0;
+
+                this.tail.push({x:this.x, y:this.y});
+                this.len = 5 + Math.floor(this.score/5);
+                while(this.tail.length > this.len) this.tail.shift();
+            }
+
+            aiThink() {
+                if(!this.target || Math.random() < 0.05) {
+                    if(localFoods.length > 0) this.target = localFoods[Math.floor(Math.random()*localFoods.length)];
+                }
+                if(this.target) {
+                    if(this.x < this.target.x && this.dx!==-1) { this.dx=1; this.dy=0; }
+                    else if(this.x > this.target.x && this.dx!==1) { this.dx=-1; this.dy=0; }
+                    else if(this.y < this.target.y && this.dy!==-1) { this.dy=1; this.dx=0; }
+                    else if(this.y > this.target.y && this.dy!==1) { this.dy=-1; this.dx=0; }
+                }
+                if(Math.random() < 0.05) { // 随机转向
+                    let d = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}][Math.floor(Math.random()*4)];
+                    if(d.x!==-this.dx && d.y!==-this.dy) { this.dx=d.x; this.dy=d.y; }
+                }
+            }
+        }
+
+        function spawnLocalFood(x, y, val=1) {
+            localFoods.push({
+                x: x!==undefined?x:Math.floor(Math.random()*MAP_SIZE),
+                y: y!==undefined?y:Math.floor(Math.random()*MAP_SIZE),
+                val: val,
+                color: `hsl(${Math.random()*360}, 100%, 60%)`
             });
         }
 
-        // 输入逻辑
+        function updateLocalGame() {
+            // 补货
+            while(localFoods.length < LOCAL_FOOD_COUNT) spawnLocalFood();
+
+            let allSnakes = [localPlayer, ...localBots];
+
+            allSnakes.forEach(p => {
+                p.update();
+
+                // 吃食物
+                for(let i=localFoods.length-1; i>=0; i--) {
+                    let f = localFoods[i];
+                    if(p.x===f.x && p.y===f.y) {
+                        p.score += f.val * 5;
+                        localFoods.splice(i, 1);
+                        if(!p.isAi) document.getElementById('scoreVal').innerText = Math.floor(p.score);
+                    }
+                }
+
+                // 碰撞检测
+                let dead = false;
+                let killerName = null;
+                for(let other of allSnakes) {
+                    for(let part of other.tail) {
+                        if(p.x===part.x && p.y===part.y) {
+                            if(part !== p.tail[p.tail.length-1]) {
+                                dead = true;
+                                killerName = other.name;
+                            }
+                        }
+                    }
+                }
+
+                if(dead) {
+                    // 掉落尸体
+                    for(let t of p.tail) if(Math.random()>0.5) spawnLocalFood(t.x, t.y, 3);
+                    
+                    if(p.isAi) {
+                        if(!p.isAi || !localPlayer.isAi && killerName === "YOU") {
+                            showNotification(`⚔️ ${killerName} 击败了 ${p.name}`, 'kill');
+                        }
+                        p.respawn();
+                    } else {
+                        // 玩家死亡
+                        isPlaying = false;
+                        document.getElementById('final-score').innerText = Math.floor(p.score);
+                        document.getElementById('game-over').style.display = 'block';
+                    }
+                }
+            });
+        }
+
+
+        // ==========================================
+        //      通用输入逻辑 (Input)
+        // ==========================================
         let lastDx = 0, lastDy = 0;
         function sendDir(dx, dy) {
             if (dx === lastDx && dy === lastDy) return;
-            if (socket && isPlaying) {
+            
+            if (gameMode === 'local' && isPlaying) {
+                // 直接控制本地蛇
+                if(localPlayer.alive) {
+                    if ((localPlayer.dx !== 0 || localPlayer.dy !== 0) && (dx === -localPlayer.dx && dy === -localPlayer.dy)) return;
+                    localPlayer.dx = dx; localPlayer.dy = dy;
+                }
+            } else if (gameMode === 'online' && socket && isPlaying) {
                 socket.emit('input', { dx, dy });
-                lastDx = dx; lastDy = dy;
             }
+            lastDx = dx; lastDy = dy;
         }
-        function sendBoost(active) { if (socket && isPlaying) socket.emit('input', { boost: active }); }
 
-        // 键盘
+        function sendBoost(active) {
+            if(gameMode === 'local') localPlayer.boosting = active;
+            else if(gameMode === 'online' && socket) socket.emit('input', { boost: active });
+        }
+
+        // 键盘监听
         document.addEventListener('keydown', e => {
             if(e.key==='w'||e.key==='ArrowUp') sendDir(0, -1);
             if(e.key==='s'||e.key==='ArrowDown') sendDir(0, 1);
@@ -200,7 +384,7 @@
         });
         document.addEventListener('keyup', e => { if(e.code==='Space') sendBoost(false); });
 
-        // 摇杆
+        // 摇杆监听
         const zone = document.getElementById('joystick-zone');
         const stick = document.getElementById('joystick-stick');
         let joyTouchId=null, center={x:0,y:0};
@@ -210,14 +394,12 @@
             let rect=zone.getBoundingClientRect(); center.x=rect.left+rect.width/2; center.y=rect.top+rect.height/2;
             updateJoystick(t.clientX, t.clientY);
         }, {passive: false});
-
         zone.addEventListener('touchmove', (e) => {
             e.preventDefault();
             for(let i=0; i<e.changedTouches.length; i++) {
                 if(e.changedTouches[i].identifier===joyTouchId) updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
             }
         }, {passive: false});
-
         function endJoystick() { joyTouchId=null; stick.style.transform=`translate(-50%,-50%)`; }
         zone.addEventListener('touchend', endJoystick); zone.addEventListener('touchcancel', endJoystick);
 
@@ -231,50 +413,89 @@
                 else sendDir(0, dy>0?1:-1);
             }
         }
-
+        
         const btnBoost = document.getElementById('boost-btn');
         btnBoost.addEventListener('touchstart', (e) => { e.preventDefault(); sendBoost(true); });
         btnBoost.addEventListener('touchend', (e) => { e.preventDefault(); sendBoost(false); });
 
-        // 渲染
-        function gameLoop() {
+        // ==========================================
+        //      渲染循环 (Render Loop)
+        // ==========================================
+        let lastTime = 0;
+        const FRAME_RATE = 1000 / 60; // 60 FPS for render
+
+        function gameLoop(timestamp) {
             if(!isPlaying) return;
 
-            let me = gameState.players[myId];
+            // 1. 逻辑更新 (单机模式需要在前端跑逻辑，联机模式逻辑在服务器)
+            if (gameMode === 'local') {
+                // 限制逻辑帧率，模拟服务器的Tick
+                if (timestamp - lastTime > 100) { 
+                    updateLocalGame();
+                    lastTime = timestamp;
+                }
+            }
+
+            // 2. 数据准备 (统一接口)
+            let renderPlayers = {};
+            let renderFoods = [];
+            let me = null;
+
+            if (gameMode === 'local') {
+                renderPlayers[localPlayer.id] = localPlayer;
+                localBots.forEach(b => renderPlayers[b.id] = b);
+                renderFoods = localFoods;
+                me = localPlayer;
+            } else {
+                renderPlayers = onlineData.players;
+                renderFoods = onlineData.foods;
+                me = onlineData.players[myId];
+            }
+
+            // 3. 摄像机跟随
             if(me) {
-                let tx = me.x * GRID_SIZE, ty = me.y * GRID_SIZE;
+                let tx = me.x * GRID_SIZE;
+                let ty = me.y * GRID_SIZE;
                 viewX += (tx - viewX - canvas.width/2 + GRID_SIZE/2) * 0.1;
                 viewY += (ty - viewY - canvas.height/2 + GRID_SIZE/2) * 0.1;
             }
 
+            // 4. 绘制
             ctx.fillStyle = '#0b0b15'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.save(); ctx.translate(-viewX, -viewY);
 
-            // 绘制
+            // 边界
             ctx.strokeStyle = '#222'; ctx.lineWidth = GRID_SIZE;
             ctx.strokeRect(0, 0, MAP_SIZE*GRID_SIZE, MAP_SIZE*GRID_SIZE);
             drawGrid();
 
-            gameState.foods.forEach(f => {
+            // 食物
+            renderFoods.forEach(f => {
                 ctx.fillStyle = f.color; ctx.beginPath();
                 ctx.arc(f.x*GRID_SIZE + GRID_SIZE/2, f.y*GRID_SIZE + GRID_SIZE/2, GRID_SIZE/3, 0, Math.PI*2); ctx.fill();
             });
 
-            for(let id in gameState.players) {
-                let p = gameState.players[id];
-                let isMe = (id === myId);
-                ctx.fillStyle = p.color; if(isMe){ctx.shadowBlur=15;ctx.shadowColor=p.color;}
+            // 玩家
+            for(let id in renderPlayers) {
+                let p = renderPlayers[id];
+                let isMe = (gameMode === 'local' && p === localPlayer) || (gameMode === 'online' && id === myId);
+                
+                ctx.fillStyle = p.color;
+                if(isMe) { ctx.shadowBlur = 15; ctx.shadowColor = p.color; }
                 p.tail.forEach(t => ctx.fillRect(t.x*GRID_SIZE, t.y*GRID_SIZE, GRID_SIZE+0.5, GRID_SIZE+0.5));
-                ctx.shadowBlur=0;
+                ctx.shadowBlur = 0;
+
                 ctx.fillStyle = isMe ? '#fff' : p.color;
                 ctx.fillRect(p.x*GRID_SIZE, p.y*GRID_SIZE, GRID_SIZE, GRID_SIZE);
+
                 if(!isMe) {
                     ctx.fillStyle = '#fff'; ctx.font = `${GRID_SIZE/2}px Arial`; ctx.textAlign = 'center';
                     ctx.fillText(p.name, p.x*GRID_SIZE+GRID_SIZE/2, p.y*GRID_SIZE - 5);
                 }
             }
             ctx.restore();
-            drawMinimap();
+
+            drawMinimap(renderPlayers, renderFoods, me);
             requestAnimationFrame(gameLoop);
         }
 
@@ -287,19 +508,27 @@
             ctx.stroke();
         }
 
-        function drawMinimap() {
+        function drawMinimap(players, foods, me) {
             miniCtx.fillStyle = 'rgba(0,0,0,0.9)'; miniCtx.fillRect(0, 0, 150, 150);
             let scale = 150 / MAP_SIZE;
             miniCtx.fillStyle = '#444';
-            gameState.foods.forEach(f => miniCtx.fillRect(f.x*scale, f.y*scale, 1.5, 1.5));
-            for(let id in gameState.players) {
-                let p = gameState.players[id];
-                if(id === myId) miniCtx.fillStyle = '#0f0';
-                else if(p.isBot) miniCtx.fillStyle = '#f00';
-                else miniCtx.fillStyle = '#00f';
-                let r = (id===myId) ? 3 : (p.isBot?1.5:2.5);
+            foods.forEach(f => miniCtx.fillRect(f.x*scale, f.y*scale, 1.5, 1.5));
+            for(let id in players) {
+                let p = players[id];
+                let isMe = (p === me);
+                if(isMe) miniCtx.fillStyle = '#0f0';
+                else if(p.isBot || p.isAi) miniCtx.fillStyle = '#f00';
+                else miniCtx.fillStyle = '#00f'; // 联机真人队友
+                let r = isMe ? 3 : 1.5;
                 miniCtx.beginPath(); miniCtx.arc(p.x*scale, p.y*scale, r, 0, Math.PI*2); miniCtx.fill();
             }
+        }
+
+        function showNotification(text, type = 'info') {
+            const div = document.createElement('div');
+            div.innerText = text; div.className = `notify-msg notify-${type}`;
+            notificationArea.appendChild(div);
+            setTimeout(() => { if(div.parentNode) div.parentNode.removeChild(div); }, 4000);
         }
     </script>
 </body>
